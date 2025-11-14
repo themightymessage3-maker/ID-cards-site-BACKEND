@@ -466,9 +466,8 @@ app.put('/api/admin/catalog/:id', isAdmin, async (req, res) => {
 // DELETE /api/admin/catalog/:id - delete catalog item (admin only)
 app.delete('/api/admin/catalog/:id', isAdmin, async (req, res) => {
     try {
-        const item = await Catalog.findById(req.params.id);
-        if (!item) return res.status(404).json({ message: 'Item not found.' });
-        await item.remove();
+        const deleted = await Catalog.findByIdAndDelete(req.params.id);
+        if (!deleted) return res.status(404).json({ message: 'Item not found.' });
         res.status(200).json({ message: 'Item deleted.' });
     } catch (err) {
         console.error('Delete catalog error:', err.message);
