@@ -16,7 +16,9 @@ const port = process.env.PORT || 3000;
 
 const corsOptions = {
     origin: [
-        'https://clubs21sids.vercel.app', 
+        'https://clubs21sids.vercel.app',
+        'https://clubs21ids.org',
+        'https://www.clubs21ids.org',
         'http://localhost:5500', // For local development if you use Live Server
         'http://127.0.0.1:5500'  // Another local development address
     ],
