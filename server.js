@@ -38,19 +38,17 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// Multer for file uploads
+// Multer for file uploads (memory storage for direct Cloudinary upload)
 const multer = require('multer');
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadsDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-\_]/g, '_');
-        cb(null, uniqueSuffix + '-' + safeName);
-    }
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
+
+// Cloudinary configuration
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
-const upload = multer({ storage: storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
 
 
 // Basic route
@@ -397,17 +395,27 @@ app.get('/api/admin/orders', isAdmin, async (req, res) => {
     }
 });
 
-// POST /api/admin/upload-image - Upload product image (Admin only)
+// POST /api/admin/upload-image - Upload product image (Admin only, now uploads to Cloudinary)
 app.post('/api/admin/upload-image', isAdmin, upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
-        // Return the public URL for the uploaded file
-        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-        res.status(201).json({ url: fileUrl });
-    } catch (err) {
-        console.error('Upload error:', err.message);
-        res.status(500).json({ message: 'Failed to upload file.' });
-    }
+        try {
+                if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
+                // Upload to Cloudinary
+                const result = await cloudinary.uploader.upload_stream(
+                    { folder: 'clubs21ids/products' },
+                    (error, result) => {
+                        if (error) {
+                            console.error('Cloudinary upload error:', error);
+                            return res.status(500).json({ message: 'Failed to upload to Cloudinary.' });
+                        }
+                        res.status(201).json({ url: result.secure_url });
+                    }
+                );
+                // Pipe the buffer to Cloudinary
+                require('streamifier').createReadStream(req.file.buffer).pipe(result);
+        } catch (err) {
+                console.error('Upload error:', err.message);
+                res.status(500).json({ message: 'Failed to upload file.' });
+        }
 });
 
 // Catalog endpoints
